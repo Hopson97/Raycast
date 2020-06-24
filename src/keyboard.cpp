@@ -8,6 +8,10 @@ Keyboard::Keyboard()
 void Keyboard::update(sf::Event e)
 {
     switch (e.type) {
+        case sf::Event::KeyReleased:
+            m_keys[e.key.code] = false;
+            break;
+
         case sf::Event::KeyPressed:
             m_keys[e.key.code] = true;
             break;
