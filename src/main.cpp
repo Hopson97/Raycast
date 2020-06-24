@@ -4,9 +4,9 @@
 #include <SFML/Graphics/RenderWindow.hpp>
 #include <SFML/Graphics/Texture.hpp>
 #include <SFML/Graphics/VertexBuffer.hpp>
+#include <cmath>
 #include <cstring>
 #include <iostream>
-#include <cmath>
 
 constexpr float PI = 3.14159;
 
@@ -23,53 +23,56 @@ struct Player {
     float angle = PI;
 
     // How much the player moves in the X/ Y direction when moving forwards or back
-    float xOffset = 0;
-    float yOffset = 0;
+    float dx = 0;
+    float dy = 0;
 
     sf::RectangleShape sprite;
     std::vector<sf::Vertex> line;
 
-    Player() {
+    Player()
+    {
         sprite.setSize({10.0f, 10.0f});
         line.emplace_back(sf::Vector2f{0, 0}, sf::Color::Red);
         line.emplace_back(sf::Vector2f{0, 0}, sf::Color::Red);
-            xOffset = std::cos(angle);
-            yOffset = std::sin(angle);
+        dx = std::cos(angle);
+        dy = std::sin(angle);
     }
 
-    void doInput(const Keyboard& keys) {
+    void doInput(const Keyboard& keys)
+    {
         if (keys.isKeyDown(sf::Keyboard::W)) {
-            x += xOffset;
-            y += yOffset;
-        }        
+            x += dx;
+            y += dy;
+        }
         if (keys.isKeyDown(sf::Keyboard::A)) {
             angle -= 0.1;
             if (angle < 0) {
                 angle += 2 * PI;
             }
-            xOffset = std::cos(angle);
-            yOffset = std::sin(angle);
-        }        
+            dx = std::cos(angle);
+            dy = std::sin(angle);
+        }
         if (keys.isKeyDown(sf::Keyboard::S)) {
-            x -= xOffset;
-            y -= yOffset;
-        }        
+            x -= dx;
+            y -= dy;
+        }
         if (keys.isKeyDown(sf::Keyboard::D)) {
             angle += 0.1;
             if (angle > 2 * PI) {
                 angle -= 2 * PI;
             }
-            xOffset = std::cos(angle);
-            yOffset = std::sin(angle);
+            dx = std::cos(angle);
+            dy = std::sin(angle);
         }
     }
 
-    void draw(sf::RenderWindow& window) {
+    void draw(sf::RenderWindow& window)
+    {
         sprite.setPosition(x - 5, y - 5);
         window.draw(sprite);
 
         line[0].position = {x, y};
-        line[1].position = {x + xOffset * 25, y + yOffset * 25};
+        line[1].position = {x + dx * 25, y + dy * 25};
 
         window.draw(line.data(), 2, sf::PrimitiveType::Lines);
     }
@@ -170,10 +173,18 @@ int main()
         // Render to window
         for (unsigned y = 0; y < MAP_SIZE; y++) {
             for (unsigned x = 0; x < MAP_SIZE; x++) {
-                if (map.getTile(x, y) > 0) {
-                    minimapTile.setPosition(x * TILE_SIZE, y * TILE_SIZE);
-                    window.draw(minimapTile);
+                switch (map.getTile(x, y)) {
+                    case 1:
+                        minimapTile.setFillColor(sf::Color::White);
+                        break;
+
+                    default:
+                        minimapTile.setFillColor({127, 127, 127});
+                        break;
                 }
+
+                minimapTile.setPosition(x * TILE_SIZE, y * TILE_SIZE);
+                window.draw(minimapTile);
             }
         }
         player.draw(window);
