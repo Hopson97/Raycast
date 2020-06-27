@@ -26,6 +26,19 @@ float rads(float degs)
     return degs * PI / 180.f;
 }
 
+float wrap(float angle)
+{
+    if (angle < 0) {
+        return angle + 360;
+    }
+    else if (angle > 360) {
+        return angle - 360;
+    }
+    else {
+        return angle;
+    }
+}
+
 struct Map {
     // clang-format off
     const std::vector<int> MAP = {
@@ -44,6 +57,7 @@ struct Map {
 
     int getTile(int x, int y) const
     {
+        if (x < 0 || x > MAP_SIZE || y < 0 || y > MAP_SIZE) return 0;
         return MAP[y * MAP_SIZE + x];
     }
 };
@@ -210,39 +224,52 @@ int main()
 
         // Get the starting angle of the ray, that is half the FOV to the "left" of the
         // player's looking angle
-        float rayAngle = player.angle - FOV / 2;
-        if (rayAngle < 0) {
-            rayAngle += 360;
-        }
-        if (rayAngle > 360) {
-            rayAngle -= 360;
-        }
-
+        float rayAngle = wrap(player.angle - FOV / 2);
         for (int i = 0; i < PROJECTION_WIDTH; i++) {
             //
             // Horizontal line
             //
-
+            // Y Intersection -> Divide the player's Y position by the size of the tiles,
+            //  +64 if the ray is looking "down"
+            // X Intersection -> Use tan and trig where:
+            //  Opp = (Y Intersection - Player Y position)
+            //  Theta = Ray's angle
+            //  tan(Theta) = Opp / X Intersection so X Intersection = Opp / tan(Theta)
             sf::Vector2f initialIntersect;
-            // 1. Find where the ray intersects the first horizontal line ('A')
-            //  This can be done by sort of "moving" player's Y position to either side of
-            //  a horizontal line, and then adding 64 if facing down (as the top of the
-            //  window is considered Y=0)
             initialIntersect.y =
                 std::floor(player.y / TILE_SIZE) * TILE_SIZE + (rayAngle < 180 ? 64 : -1);
-            // Trig to find X coord of this line...
             initialIntersect.x =
                 (initialIntersect.y - player.y) / std::tan(rads(rayAngle)) + player.x;
 
+            // Find distances to the next intersection
+            sf::Vector2f distance;
+            distance.y = rayAngle < 180 ? TILE_SIZE : -TILE_SIZE;
+            distance.x = TILE_SIZE / (rayAngle < 180 ? std::tan(rads(rayAngle))
+                                                     : -std::tan(rads(rayAngle)));
+            sf::Vector2f next = initialIntersect + distance;
+            int gridX = std::floor(next.x / TILE_SIZE);
+            int gridY = std::floor(next.y / TILE_SIZE);
+
+            while ((gridX >= 0 && gridX < MAP_SIZE) && map.getTile(gridX, gridY) == 0) {
+                next += distance;
+                gridX = std::floor(next.x / TILE_SIZE);
+                gridY = std::floor(next.y / TILE_SIZE);
+            }
+
+            drawBuffer.drawLine(window, {player.x, player.y}, {next.x, next.y},
+                                sf::Color::Red);
             drawBuffer.drawLine(window, {player.x, player.y},
                                 {initialIntersect.x, initialIntersect.y}, sf::Color::Red);
-            rayAngle += (float)FOV / (float)PROJECTION_WIDTH;
-            if (rayAngle < 0) {
-                rayAngle += 360;
-            }
-            if (rayAngle >= 360) {
-                rayAngle -= 360;
-            }
+
+
+
+
+
+
+            rayAngle = wrap(rayAngle + (float)FOV / (float)PROJECTION_WIDTH);
+
+
+
         }
         drawBuffer.drawLine(window, {player.x, player.y},
                             {player.x + player.dx * 25, player.y + player.dy * 25},
