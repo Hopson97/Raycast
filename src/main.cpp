@@ -9,18 +9,23 @@
 #include <iostream>
 
 constexpr float PI = 3.14159;
+constexpr float SPEED = 2.0;
 
-constexpr unsigned WINDOW_WIDTH = 1200;
-constexpr unsigned WINDOW_HEIGHT = 600;
+constexpr int MAP_SIZE = 10;
+constexpr int TILE_SIZE = 64;
+constexpr int WINDOW_WIDTH =  TILE_SIZE * MAP_SIZE * 2;
+constexpr int WINDOW_HEIGHT = TILE_SIZE * MAP_SIZE;
 
-constexpr unsigned MAP_SIZE = 10;
+constexpr int EYE_HEIGHT = 32;
 
-constexpr unsigned TILE_SIZE = 60.0f;
+float rads(float degs) {
+    return degs * PI / 180.f;
+}
 
 struct Player {
     float x = 153;
     float y = 221;
-    float angle = PI;
+    float angle = 0;
 
     // How much the player moves in the X/ Y direction when moving forwards or back
     float dx = 0;
@@ -40,29 +45,30 @@ struct Player {
 
     void doInput(const Keyboard& keys)
     {
+        float a = rads(angle);
         if (keys.isKeyDown(sf::Keyboard::W)) {
-            x += dx;
-            y += dy;
+            x += dx * SPEED;
+            y += dy * SPEED;
         }
         if (keys.isKeyDown(sf::Keyboard::A)) {
-            angle -= 0.1;
+            angle -= SPEED;
             if (angle < 0) {
-                angle += 2 * PI;
+                angle += 360;
             }
-            dx = std::cos(angle);
-            dy = std::sin(angle);
+            dx = std::cos(a);
+            dy = std::sin(a);
         }
         if (keys.isKeyDown(sf::Keyboard::S)) {
-            x -= dx;
-            y -= dy;
+            x -= dx * SPEED;
+            y -= dy * SPEED;
         }
         if (keys.isKeyDown(sf::Keyboard::D)) {
-            angle += 0.1;
-            if (angle > 2 * PI) {
-                angle -= 2 * PI;
+            angle += SPEED;
+            if (angle > 360) {
+                angle -= 360;
             }
-            dx = std::cos(angle);
-            dy = std::sin(angle);
+            dx = std::cos(a);
+            dy = std::sin(a);
         }
     }
 
@@ -138,6 +144,7 @@ int main()
 
     sf::RectangleShape sprite;
     sprite.setSize({WINDOW_WIDTH / 2, WINDOW_HEIGHT});
+    sprite.move(WINDOW_WIDTH / 2, 0);
 
     sf::RectangleShape minimapTile;
     minimapTile.setSize({TILE_SIZE, TILE_SIZE});
@@ -168,11 +175,8 @@ int main()
         window.clear();
         drawBuffer.clear();
 
-        // Render to buffer
-
-        // Render to window
-        for (unsigned y = 0; y < MAP_SIZE; y++) {
-            for (unsigned x = 0; x < MAP_SIZE; x++) {
+        for (int y = 0; y < MAP_SIZE; y++) {
+            for (int x = 0; x < MAP_SIZE; x++) {
                 switch (map.getTile(x, y)) {
                     case 1:
                         minimapTile.setFillColor(sf::Color::White);
@@ -188,6 +192,9 @@ int main()
             }
         }
         player.draw(window);
+
+        // Do ray cast stuff
+        
 
         sprite.setTexture(&texture);
         texture.update(drawBuffer.pixels.data());
