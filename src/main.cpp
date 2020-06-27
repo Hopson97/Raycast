@@ -211,35 +211,38 @@ int main()
         // Get the starting angle of the ray, that is half the FOV to the "left" of the
         // player's looking angle
         float rayAngle = player.angle - FOV / 2;
-        std::cout << rayAngle << std::endl;
         if (rayAngle < 0) {
             rayAngle += 360;
         }
         if (rayAngle > 360) {
             rayAngle -= 360;
         }
-        std::cout << rayAngle << std::endl;
 
-        for (int i = 0; i < 1; i++) {
+        for (int i = 0; i < PROJECTION_WIDTH; i++) {
             //
             // Horizontal line
             //
 
+            sf::Vector2f initialIntersect;
             // 1. Find where the ray intersects the first horizontal line ('A')
             //  This can be done by sort of "moving" player's Y position to either side of
             //  a horizontal line, and then adding 64 if facing down (as the top of the
             //  window is considered Y=0)
-            float firstIntersectY =
+            initialIntersect.y =
                 std::floor(player.y / TILE_SIZE) * TILE_SIZE + (rayAngle < 180 ? 64 : -1);
             // Trig to find X coord of this line...
-            float firstIntersectX =
-                (firstIntersectY - player.y) / std::tan(rads(rayAngle)) + player.x;
+            initialIntersect.x =
+                (initialIntersect.y - player.y) / std::tan(rads(rayAngle)) + player.x;
 
-            float rdx = std::cos(rads(rayAngle));
-            float rdy = std::sin(rads(rayAngle));
             drawBuffer.drawLine(window, {player.x, player.y},
-                                {firstIntersectX, firstIntersectY}, sf::Color::Red);
+                                {initialIntersect.x, initialIntersect.y}, sf::Color::Red);
             rayAngle += (float)FOV / (float)PROJECTION_WIDTH;
+            if (rayAngle < 0) {
+                rayAngle += 360;
+            }
+            if (rayAngle >= 360) {
+                rayAngle -= 360;
+            }
         }
         drawBuffer.drawLine(window, {player.x, player.y},
                             {player.x + player.dx * 25, player.y + player.dy * 25},
