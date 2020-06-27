@@ -10,17 +10,43 @@
 
 constexpr float PI = 3.14159;
 constexpr float SPEED = 2.0;
+constexpr int FOV = 60;
 
 constexpr int MAP_SIZE = 10;
 constexpr int TILE_SIZE = 64;
-constexpr int WINDOW_WIDTH =  TILE_SIZE * MAP_SIZE * 2;
+constexpr int WINDOW_WIDTH = TILE_SIZE * MAP_SIZE * 2;
 constexpr int WINDOW_HEIGHT = TILE_SIZE * MAP_SIZE;
+
+constexpr int PROJECTION_WIDTH = WINDOW_WIDTH / 2;
 
 constexpr int EYE_HEIGHT = 32;
 
-float rads(float degs) {
+float rads(float degs)
+{
     return degs * PI / 180.f;
 }
+
+struct Map {
+    // clang-format off
+    const std::vector<int> MAP = {
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+        1, 0, 0, 0, 1, 0, 0, 0, 0, 1,
+        1, 0, 0, 0, 1, 1, 0, 0, 0, 1,
+        1, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+        1, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+        1, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+        1, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+        1, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+        1, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    };
+    // clang-format on
+
+    int getTile(int x, int y) const
+    {
+        return MAP[y * MAP_SIZE + x];
+    }
+};
 
 struct Player {
     float x = 153;
@@ -32,13 +58,10 @@ struct Player {
     float dy = 0;
 
     sf::RectangleShape sprite;
-    std::vector<sf::Vertex> line;
 
     Player()
     {
         sprite.setSize({10.0f, 10.0f});
-        line.emplace_back(sf::Vector2f{0, 0}, sf::Color::Red);
-        line.emplace_back(sf::Vector2f{0, 0}, sf::Color::Red);
         dx = std::cos(angle);
         dy = std::sin(angle);
     }
@@ -76,42 +99,29 @@ struct Player {
     {
         sprite.setPosition(x - 5, y - 5);
         window.draw(sprite);
-
-        line[0].position = {x, y};
-        line[1].position = {x + dx * 25, y + dy * 25};
-
-        window.draw(line.data(), 2, sf::PrimitiveType::Lines);
-    }
-};
-
-struct Map {
-    // clang-format off
-    const std::vector<int> MAP = {
-        1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-        1, 0, 0, 0, 1, 0, 0, 0, 0, 1,
-        1, 0, 0, 0, 1, 1, 0, 0, 0, 1,
-        1, 0, 0, 0, 0, 0, 0, 0, 0, 1,
-        1, 0, 0, 0, 0, 0, 0, 0, 0, 1,
-        1, 0, 0, 0, 0, 0, 0, 0, 0, 1,
-        1, 0, 0, 0, 0, 0, 0, 0, 0, 1,
-        1, 0, 0, 0, 0, 0, 0, 0, 0, 1,
-        1, 0, 0, 0, 0, 0, 0, 0, 0, 1,
-        1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-    };
-    // clang-format on
-
-    int getTile(int x, int y) const
-    {
-        return MAP[y * MAP_SIZE + x];
     }
 };
 
 struct Drawbuffer {
     std::vector<sf::Uint8> pixels;
+    std::vector<sf::Vertex> line;
 
     Drawbuffer()
         : pixels((WINDOW_WIDTH / 2) * WINDOW_HEIGHT * 4)
     {
+        line.emplace_back(sf::Vector2f{0, 0}, sf::Color::Red);
+        line.emplace_back(sf::Vector2f{0, 0}, sf::Color::Red);
+    }
+
+    // For the minimap
+    void drawLine(sf::RenderWindow& window, const sf::Vector2f& begin,
+                  const sf::Vector2f& end, sf::Color colour)
+    {
+        line[0].position = begin;
+        line[1].position = end;
+        line[0].color = colour;
+        line[1].color = colour;
+        window.draw(line.data(), 2, sf::PrimitiveType::Lines);
     }
 
     void clear()
@@ -175,6 +185,7 @@ int main()
         window.clear();
         drawBuffer.clear();
 
+        // Render the minimap
         for (int y = 0; y < MAP_SIZE; y++) {
             for (int x = 0; x < MAP_SIZE; x++) {
                 switch (map.getTile(x, y)) {
@@ -193,8 +204,46 @@ int main()
         }
         player.draw(window);
 
-        // Do ray cast stuff
-        
+        //
+        //  Raycasting starts here
+        //
+
+        // Get the starting angle of the ray, that is half the FOV to the "left" of the
+        // player's looking angle
+        float rayAngle = player.angle - FOV / 2;
+        std::cout << rayAngle << std::endl;
+        if (rayAngle < 0) {
+            rayAngle += 360;
+        }
+        if (rayAngle > 360) {
+            rayAngle -= 360;
+        }
+        std::cout << rayAngle << std::endl;
+
+        for (int i = 0; i < 1; i++) {
+            //
+            // Horizontal line
+            //
+
+            // 1. Find where the ray intersects the first horizontal line ('A')
+            //  This can be done by sort of "moving" player's Y position to either side of
+            //  a horizontal line, and then adding 64 if facing down (as the top of the
+            //  window is considered Y=0)
+            float firstIntersectY =
+                std::floor(player.y / TILE_SIZE) * TILE_SIZE + (rayAngle < 180 ? 64 : -1);
+            // Trig to find X coord of this line...
+            float firstIntersectX =
+                (firstIntersectY - player.y) / std::tan(rads(rayAngle)) + player.x;
+
+            float rdx = std::cos(rads(rayAngle));
+            float rdy = std::sin(rads(rayAngle));
+            drawBuffer.drawLine(window, {player.x, player.y},
+                                {firstIntersectX, firstIntersectY}, sf::Color::Red);
+            rayAngle += (float)FOV / (float)PROJECTION_WIDTH;
+        }
+        drawBuffer.drawLine(window, {player.x, player.y},
+                            {player.x + player.dx * 25, player.y + player.dy * 25},
+                            sf::Color::Yellow);
 
         sprite.setTexture(&texture);
         texture.update(drawBuffer.pixels.data());
