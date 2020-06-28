@@ -1,9 +1,11 @@
 #include "keyboard.h"
 #include <SFML/Graphics/Image.hpp>
 #include <SFML/Graphics/RectangleShape.hpp>
+#include <SFML/Graphics/RenderTexture.hpp>
 #include <SFML/Graphics/RenderWindow.hpp>
 #include <SFML/Graphics/Texture.hpp>
 #include <SFML/Graphics/VertexBuffer.hpp>
+#include <cassert>
 #include <cmath>
 #include <cstring>
 #include <iostream>
@@ -14,10 +16,9 @@ constexpr int FOV = 60;
 
 constexpr int MAP_SIZE = 20;
 constexpr int TILE_SIZE = 64;
-constexpr int WINDOW_WIDTH = TILE_SIZE * MAP_SIZE * 2;
-constexpr int WINDOW_HEIGHT = TILE_SIZE * MAP_SIZE;
-
-constexpr int PROJECTION_WIDTH = WINDOW_WIDTH / 2;
+constexpr int MINIMAP_TILE_SIZE = 16;
+constexpr int WINDOW_WIDTH = 1280;
+constexpr int WINDOW_HEIGHT = 720;
 
 constexpr int EYE_HEIGHT = 32;
 
@@ -67,9 +68,15 @@ struct Map {
         1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
         1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
         1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+        1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
         1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
     };
     // clang-format on
+
+    Map()
+    {
+        assert(MAP.size() == (MAP_SIZE * MAP_SIZE));
+    }
 
     int getTile(int x, int y) const
     {
@@ -88,11 +95,11 @@ struct Player {
     float dx = 0;
     float dy = 0;
 
-    sf::RectangleShape sprite;
+    sf::RectangleShape rayCastSprite;
 
     Player()
     {
-        sprite.setSize({10.0f, 10.0f});
+        rayCastSprite.setSize({10.0f, 10.0f});
         dx = std::cos(angle);
         dy = std::sin(angle);
     }
@@ -126,10 +133,10 @@ struct Player {
         }
     }
 
-    void draw(sf::RenderWindow& window)
+    void draw(sf::RenderTexture& window)
     {
-        sprite.setPosition(x - 5, y - 5);
-        window.draw(sprite);
+        rayCastSprite.setPosition(x / 4 - 5, y / 4 - 5);
+        window.draw(rayCastSprite);
     }
 };
 
@@ -138,21 +145,21 @@ struct Drawbuffer {
     std::vector<sf::Vertex> line;
 
     Drawbuffer()
-        : pixels((WINDOW_WIDTH / 2) * WINDOW_HEIGHT * 4)
+        : pixels((WINDOW_WIDTH)*WINDOW_HEIGHT * 4)
     {
         line.emplace_back(sf::Vector2f{0, 0}, sf::Color::Red);
         line.emplace_back(sf::Vector2f{0, 0}, sf::Color::Red);
     }
 
     // For the minimap
-    void drawLine(sf::RenderWindow& window, const sf::Vector2f& begin,
+    void drawLine(sf::RenderTarget& target, const sf::Vector2f& begin,
                   const sf::Vector2f& end, sf::Color colour)
     {
         line[0].position = begin;
         line[1].position = end;
         line[0].color = colour;
         line[1].color = colour;
-        window.draw(line.data(), 2, sf::PrimitiveType::Lines);
+        target.draw(line.data(), 2, sf::PrimitiveType::Lines);
     }
 
     void clear()
@@ -162,10 +169,10 @@ struct Drawbuffer {
 
     void set(int x, int y, sf::Uint8 red, sf::Uint8 green, sf::Uint8 blue)
     {
-        if (x < 0 || x >= PROJECTION_WIDTH || y < 0 || y >= WINDOW_HEIGHT) {
+        if (x < 0 || x >= WINDOW_WIDTH || y < 0 || y >= WINDOW_HEIGHT) {
             return;
         }
-        sf::Uint8* ptr = &pixels.at((y * PROJECTION_WIDTH + x) * 4);
+        sf::Uint8* ptr = &pixels.at((y * WINDOW_WIDTH + x) * 4);
         ptr[0] = red;
         ptr[1] = green;
         ptr[2] = blue;
@@ -179,19 +186,25 @@ int main()
     window.setFramerateLimit(60);
     window.setKeyRepeatEnabled(false);
 
+    // For the minimap
+    sf::RenderTexture minimapTexture;
+    minimapTexture.create(MINIMAP_TILE_SIZE * MAP_SIZE, MINIMAP_TILE_SIZE * MAP_SIZE);
+    sf::RectangleShape minimapSprite;
+    minimapSprite.setSize(
+        {(float)MINIMAP_TILE_SIZE * MAP_SIZE, (float)MINIMAP_TILE_SIZE * MAP_SIZE});
+
     Drawbuffer drawBuffer;
     Map map;
     Player player;
 
     sf::Texture texture;
-    texture.create(WINDOW_WIDTH / 2, WINDOW_HEIGHT);
+    texture.create(WINDOW_WIDTH, WINDOW_HEIGHT);
 
-    sf::RectangleShape sprite;
-    sprite.setSize({WINDOW_WIDTH / 2, WINDOW_HEIGHT});
-    sprite.move(WINDOW_WIDTH / 2, 0);
+    sf::RectangleShape rayCastSprite;
+    rayCastSprite.setSize({WINDOW_WIDTH, WINDOW_HEIGHT});
 
     sf::RectangleShape minimapTile;
-    minimapTile.setSize({TILE_SIZE, TILE_SIZE});
+    minimapTile.setSize({MINIMAP_TILE_SIZE, MINIMAP_TILE_SIZE});
     minimapTile.setFillColor(sf::Color::White);
     minimapTile.setOutlineColor(sf::Color::Black);
     minimapTile.setOutlineThickness(1);
@@ -218,46 +231,23 @@ int main()
         // Clear
         window.clear();
         drawBuffer.clear();
+        minimapTexture.clear(sf::Color::Transparent);
 
-        // Render the minimap
-        for (int y = 0; y < MAP_SIZE; y++) {
-            for (int x = 0; x < MAP_SIZE; x++) {
-                switch (map.getTile(x, y)) {
-                    case 1:
-                        minimapTile.setFillColor(sf::Color::White);
-                        break;
-
-                    default:
-                        minimapTile.setFillColor({127, 127, 127});
-                        break;
-                }
-
-                minimapTile.setPosition(x * TILE_SIZE, y * TILE_SIZE);
-                window.draw(minimapTile);
-            }
-        }
-        player.draw(window);
-
-        //
-        //  Raycasting starts here
-        //
-        sf::Vector2f horizonatalIntersect;
-        sf::Vector2f verticalIntersect;
-
+        // ================= Raycasting starts here ========================
         // Get the starting angle of the ray, that is half the FOV to the "left" of the
         // player's looking angle
         float rayAngle = wrap(player.angle - FOV / 2);
-        for (int i = 0; i < PROJECTION_WIDTH; i++) {
-            //
-            // Horizontal line
-            //
+        for (int i = 0; i < WINDOW_WIDTH; i++) {
+            // These need to be stored for later so they can be compared
+            sf::Vector2f horizonatalIntersect;
+            sf::Vector2f verticalIntersect;
+            // =============== Horizontal line =========================
             // Y Intersection -> Divide the player's Y position by the size of the tiles,
             //  +64 if the ray is looking "down"
             // X Intersection -> Use tan and trig where:
             //  Opp = (Y Intersection - Player Y position)
             //  Theta = Ray's angle
             //  tan(Theta) = Opp / X Intersection so X Intersection = Opp / tan(Theta)
-
             {
                 sf::Vector2f initialIntersect;
                 initialIntersect.y = std::floor(player.y / TILE_SIZE) * TILE_SIZE +
@@ -283,7 +273,7 @@ int main()
                 horizonatalIntersect = next;
             }
 
-            // Vertical line, same idea as the horizontal line
+            // =============== Vertical line =========================
             {
                 bool left = rayAngle > 90 && rayAngle < 270;
                 sf::Vector2f initialIntersect;
@@ -313,48 +303,80 @@ int main()
             // Find the shortest distance (And draw a ray on the minimap)
             float hDist = distance({player.x, player.y}, horizonatalIntersect);
             float vDist = distance({player.x, player.y}, verticalIntersect);
-            float dist = hDist < vDist ? hDist : vDist;
+            float dist = 0;
             sf::Color colour;
             if (hDist < vDist) {
-                drawBuffer.drawLine(window, {player.x, player.y}, horizonatalIntersect,
-                                    sf::Color::Blue);
+                dist = hDist;
                 colour = {255, 153, 51};
             }
             else {
-                drawBuffer.drawLine(window, {player.x, player.y}, verticalIntersect,
-                                    sf::Color::Red);
+                dist = vDist;
                 colour = {255, 204, 102};
-
             }
 
-            // Fix the fisheye effect
+            // Fix the fisheye effect (not quite right...)
             dist = std::cos(rads(FOV / 2)) * dist;
 
             // Draw the walls
-            float height = TILE_SIZE / dist * (PROJECTION_WIDTH / 2 / std::tan(rads(FOV / 2)));
-            float middle = 320;
+            float height =
+                TILE_SIZE / dist * (WINDOW_WIDTH / 2 / std::tan(rads(FOV / 2)));
             int start = (WINDOW_HEIGHT / 2) - height / 2;
             // Draw the ceiling, then the wall, then the floor
             for (int y = 0; y < start; y++) {
                 drawBuffer.set(i, y, 135, 206, 235);
             }
             for (int y = start; y < start + height; y++) {
-                drawBuffer.set(i, y, colour.r, colour.g, colour.b);
+                drawBuffer.set(i, y, colour.r / dist * 255, colour.g / dist * 255,
+                               colour.b / dist * 255);
             }
             for (int y = start + height; y < WINDOW_HEIGHT; y++) {
                 drawBuffer.set(i, y, 0, 153, 51);
             }
 
             // Find the next ray angle
-            rayAngle = wrap(rayAngle + (float)FOV / (float)PROJECTION_WIDTH);
-        }
-        drawBuffer.drawLine(window, {player.x, player.y},
-                            {player.x + player.dx * 25, player.y + player.dy * 25},
-                            sf::Color::Yellow);
+            rayAngle = wrap(rayAngle + (float)FOV / (float)WINDOW_WIDTH);
 
-        sprite.setTexture(&texture);
+            // Draw rays for the mini map
+            if (hDist < vDist) {
+                drawBuffer.drawLine(minimapTexture, {player.x / 4.0f, player.y / 4.0f},
+                                    horizonatalIntersect / 4.0f, {0, 0, 255, 50});
+            }
+            else {
+                drawBuffer.drawLine(minimapTexture, {player.x / 4.0f, player.y / 4.0f},
+                                    verticalIntersect / 4.0f, {255, 0, 0, 50});
+            }
+        }
+
+        // Actually render the walls
+        rayCastSprite.setTexture(&texture);
         texture.update(drawBuffer.pixels.data());
-        window.draw(sprite);
+        window.draw(rayCastSprite);
+
+        // Render the minimap
+        for (int y = 0; y < MAP_SIZE; y++) {
+            for (int x = 0; x < MAP_SIZE; x++) {
+                switch (map.getTile(x, y)) {
+                    case 1:
+                        minimapTile.setFillColor({255, 255, 255, 200});
+                        break;
+
+                    default:
+                        minimapTile.setFillColor({127, 127, 127, 200});
+                        break;
+                }
+                minimapTile.setPosition(x * MINIMAP_TILE_SIZE, y * MINIMAP_TILE_SIZE);
+                window.draw(minimapTile);
+            }
+        }
+        player.draw(minimapTexture);
+        drawBuffer.drawLine(
+            minimapTexture, {player.x / 4, player.y / 4},
+            {player.x / 4 + player.dx * 25, player.y / 4 + player.dy * 25},
+            sf::Color::Yellow);
+
+        minimapTexture.display();
+        minimapSprite.setTexture(&minimapTexture.getTexture());
+        window.draw(minimapSprite);
 
         window.display();
     }
