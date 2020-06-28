@@ -46,6 +46,12 @@ float distance(const sf::Vector2f& vecA, sf::Vector2f& vectB)
     return std::sqrt(dx * dx + dy * dy);
 }
 
+sf::Vector2f rotate(const sf::Vector2f& curr, float rad)
+{
+    return {curr.x * std::cos(-rad) - curr.y * std::sin(-rad),
+            curr.x * std::sin(-rad) + curr.y * std::cos(-rad)};
+}
+
 struct Map {
     // clang-format off
     std::vector<int> MAP = {
@@ -93,55 +99,44 @@ struct Map {
 };
 
 struct Player {
-    float x = 153;
-    float y = 221;
-    float angle = 0;
+    sf::Vector2f pos = {153, 221};
+    sf::Vector2f dir = {-1, 0};
+    sf::Vector2f plane = {0, 0.66};
 
-    // How much the player moves in the X/ Y direction when moving forwards or back
-    float dx = 0;
-    float dy = 0;
+    float rotSpeed = 5;
+    float moveSpeed = 5;
+
+    // Perpendicular vector to the direction
 
     sf::RectangleShape rayCastSprite;
 
     Player()
     {
         rayCastSprite.setSize({10.0f, 10.0f});
-        dx = std::cos(angle);
-        dy = std::sin(angle);
     }
 
     void doInput(const Keyboard& keys)
     {
-        float a = rads(angle);
+        float rad = rads(rotSpeed);
         if (keys.isKeyDown(sf::Keyboard::W)) {
-            x += dx * SPEED;
-            y += dy * SPEED;
+            pos += dir * moveSpeed;
         }
         if (keys.isKeyDown(sf::Keyboard::A)) {
-            angle -= SPEED;
-            if (angle < 0) {
-                angle += 360;
-            }
-            dx = std::cos(a);
-            dy = std::sin(a);
+            dir = rotate(dir, -rad);
+            plane = rotate(plane, -rad);
         }
         if (keys.isKeyDown(sf::Keyboard::S)) {
-            x -= dx * SPEED;
-            y -= dy * SPEED;
+            pos -= dir * moveSpeed;
         }
         if (keys.isKeyDown(sf::Keyboard::D)) {
-            angle += SPEED;
-            if (angle > 360) {
-                angle -= 360;
-            }
-            dx = std::cos(a);
-            dy = std::sin(a);
+            dir = rotate(dir, rad);
+            plane = rotate(plane, rad);
         }
     }
 
     void draw(sf::RenderTexture& window)
     {
-        rayCastSprite.setPosition(x / MINIMAP_SCALE - 5, y / MINIMAP_SCALE - 5);
+        rayCastSprite.setPosition(pos.x / MINIMAP_SCALE - 5, pos.y / MINIMAP_SCALE - 5);
         window.draw(rayCastSprite);
     }
 };
@@ -254,122 +249,6 @@ int main()
         drawBuffer.clear();
         minimapTexture.clear(sf::Color::Transparent);
 
-        // ================= Raycasting starts here ========================
-        // Get the starting angle of the ray, that is half the FOV to the "left" of the
-        // player's looking angle
-        float rayAngle = wrap(player.angle - FOV / 2);
-        for (int i = 0; i < WINDOW_WIDTH; i++) {
-            // These need to be stored for later so they can be compared
-            sf::Vector2f horizonatalIntersect;
-            sf::Vector2f verticalIntersect;
-            // =============== Horizontal line =========================
-            // Y Intersection -> Divide the player's Y position by the size of the tiles,
-            //  +64 if the ray is looking "down"
-            // X Intersection -> Use tan and trig where:
-            //  Opp = (Y Intersection - Player Y position)
-            //  Theta = Ray's angle
-            //  tan(Theta) = Opp / X Intersection so X Intersection = Opp / tan(Theta)
-            {
-                sf::Vector2f initialIntersect;
-                initialIntersect.y = std::floor(player.y / TILE_SIZE) * TILE_SIZE +
-                                     (rayAngle < 180 ? TILE_SIZE : -1);
-                initialIntersect.x =
-                    (initialIntersect.y - player.y) / std::tan(rads(rayAngle)) + player.x;
-
-                // Find distances to the next intersection
-                sf::Vector2f distance;
-                distance.y = rayAngle < 180 ? TILE_SIZE : -TILE_SIZE;
-                distance.x = TILE_SIZE / (rayAngle < 180 ? std::tan(rads(rayAngle))
-                                                         : -std::tan(rads(rayAngle)));
-
-                int gridX = std::floor(initialIntersect.x / TILE_SIZE);
-                int gridY = std::floor(initialIntersect.y / TILE_SIZE);
-                sf::Vector2f next = initialIntersect;
-                while ((gridX >= 0 && gridX < MAP_SIZE) &&
-                       map.getTile(gridX, gridY) == 0) {
-                    next += distance;
-                    gridX = std::floor(next.x / TILE_SIZE);
-                    gridY = std::floor(next.y / TILE_SIZE);
-                }
-                horizonatalIntersect = next;
-            }
-
-            // =============== Vertical line =========================
-            {
-                bool left = rayAngle > 90 && rayAngle < 270;
-                sf::Vector2f initialIntersect;
-                initialIntersect.x = std::floor(player.x / TILE_SIZE) * TILE_SIZE +
-                                     (left ? -1 : TILE_SIZE);
-                initialIntersect.y =
-                    (initialIntersect.x - player.x) * std::tan(rads(rayAngle)) + player.y;
-
-                sf::Vector2f distance;
-                distance.x = left ? -TILE_SIZE : TILE_SIZE;
-                distance.y = TILE_SIZE * (left ? -std::tan(rads(rayAngle))
-                                               : std::tan(rads(rayAngle)));
-
-                sf::Vector2f next = initialIntersect;
-                int gridX = std::floor(next.x / TILE_SIZE);
-                int gridY = std::floor(next.y / TILE_SIZE);
-
-                while ((gridX >= 0 && gridX < MAP_SIZE) &&
-                       map.getTile(gridX, gridY) == 0) {
-                    next += distance;
-                    gridX = std::floor(next.x / TILE_SIZE);
-                    gridY = std::floor(next.y / TILE_SIZE);
-                }
-                verticalIntersect = next;
-            }
-
-            // Find the shortest distance (And draw a ray on the minimap)
-            float hDist = distance({player.x, player.y}, horizonatalIntersect);
-            float vDist = distance({player.x, player.y}, verticalIntersect);
-            float dist = 0;
-            sf::Color colour;
-            if (hDist < vDist) {
-                dist = hDist;
-                colour = {255, 153, 51};
-            }
-            else {
-                dist = vDist;
-                colour = {255, 204, 102};
-            }
-
-            // Fix the fisheye effect (not quite right...)
-            dist = std::cos(rads(FOV / 2)) * dist;
-
-            // Draw the walls
-            float height =
-                TILE_SIZE / dist * (WINDOW_WIDTH / 2 / std::tan(rads(FOV / 2)));
-            int start = (WINDOW_HEIGHT / 2) - height / 2;
-            // Draw the ceiling, then the wall, then the floor
-            // This is done by drawing vertical lines in a loop
-            for (int y = 0; y < start; y++) {
-                drawBuffer.set(i, y, 135, 206, 235);
-            }
-            for (int y = start; y < start + height; y++) {
-                drawBuffer.set(i, y, colour.r, colour.g, colour.b);
-            }
-            for (int y = start + height; y < WINDOW_HEIGHT; y++) {
-                drawBuffer.set(i, y, 0, 153, 51);
-            }
-
-            // Find the next ray angle
-            rayAngle = wrap(rayAngle + (float)FOV / (float)WINDOW_WIDTH);
-
-            // Draw rays for the mini map
-            if (hDist < vDist) {
-                drawBuffer.drawLine(
-                    minimapTexture, {player.x / MINIMAP_SCALE, player.y / MINIMAP_SCALE},
-                    horizonatalIntersect / (float)MINIMAP_SCALE, {0, 0, 255, 50});
-            }
-            else {
-                drawBuffer.drawLine(
-                    minimapTexture, {player.x / MINIMAP_SCALE, player.y / MINIMAP_SCALE},
-                    verticalIntersect / (float)MINIMAP_SCALE, {255, 0, 0, 50});
-            }
-        }
-
         // Actually render the walls
         rayCastSprite.setTexture(&texture);
         texture.update(drawBuffer.pixels.data());
@@ -391,12 +270,20 @@ int main()
                 window.draw(minimapTile);
             }
         }
-        player.draw(minimapTexture);
         drawBuffer.drawLine(minimapTexture,
-                            {player.x / MINIMAP_SCALE, player.y / MINIMAP_SCALE},
-                            {player.x / MINIMAP_SCALE + player.dx * 25,
-                             player.y / MINIMAP_SCALE + player.dy * 25},
+                            {player.pos.x / MINIMAP_SCALE, player.pos.y / MINIMAP_SCALE},
+                            {player.pos.x / MINIMAP_SCALE + player.dir.x * 25,
+                             player.pos.y / MINIMAP_SCALE + player.dir.y * 25},
                             sf::Color::Yellow);
+
+        drawBuffer.drawLine(minimapTexture,
+                            {player.pos.x / MINIMAP_SCALE - player.plane.x * 25, 
+                             player.pos.y / MINIMAP_SCALE - player.plane.y * 25},
+                            {player.pos.x / MINIMAP_SCALE + player.plane.x * 25,
+                             player.pos.y / MINIMAP_SCALE + player.plane.y * 25},
+                            sf::Color::Red);
+        player.draw(minimapTexture);
+
 
         minimapTexture.display();
         minimapSprite.setTexture(&minimapTexture.getTexture());
