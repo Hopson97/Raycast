@@ -78,7 +78,7 @@ struct Map {
 struct Player {
     sf::Vector2f pos = {153, 221};
     sf::Vector2f dir = {-1, 0};
-    sf::Vector2f plane = {0, 0.66};
+    sf::Vector2f plane = {0, -0.66};
 
     float rotSpeed = 5;
     float moveSpeed = 5;
@@ -161,7 +161,7 @@ int main()
                         x /= MINIMAP_TILE_SIZE;
                         y /= MINIMAP_TILE_SIZE;
                         // toggle the tile
-                        map.setTile(x, y, !map.getTile(x, y));
+                        map.setTile(x, y, (map.getTile(x, y) + 1) % 4);
                     }
                     break;
                 }
@@ -181,6 +181,36 @@ int main()
         minimapTexture.clear(sf::Color::Transparent);
 
         // DO RAYCASTING HERE
+        for (int x = 0; x < WINDOW_WIDTH; x++) {
+            // Left = -1, middle = 0, right = 1
+            float normalisedX = 2 * x / (float)WINDOW_WIDTH - 1;
+
+            // Multiplying the plane by this makes it go left/right of the player
+            sf::Vector2f rayDir = player.dir + normalisedX * player.plane;
+
+            // The location of the tile we are in
+            sf::Vector2i mapSquare = {(int)player.pos.x, (int)player.pos.y};
+
+            // The distance from 1 "edge" to the next (in both x and y)SOMEHOW????
+            sf::Vector2f distance = {std::abs(1 / rayDir.x), std::abs(1 / rayDir.y)};
+
+            sf::Vector2f step;
+            if (rayDir.x < 0) {
+                step.x = -1;
+            }
+            else {
+                step.x = 1;
+            }
+
+
+            drawBuffer.renderLine(
+                minimapTexture,
+                {player.pos.x / MINIMAP_SCALE, player.pos.y / MINIMAP_SCALE},
+                {player.pos.x / MINIMAP_SCALE + rayDir.x * 25,
+                 player.pos.y / MINIMAP_SCALE + rayDir.y * 25},
+                sf::Color::Green);
+        }
+        // END THE RAYCASTING
 
         // Actually render the walls
         drawBuffer.render(window);
@@ -209,30 +239,31 @@ int main()
                 window.draw(minimapTile);
             }
         }
-        drawBuffer.renderLine(minimapTexture,
-                            {player.pos.x / MINIMAP_SCALE, player.pos.y / MINIMAP_SCALE},
-                            {player.pos.x / MINIMAP_SCALE + player.dir.x * 25,
-                             player.pos.y / MINIMAP_SCALE + player.dir.y * 25},
-                            sf::Color::Yellow);
-
-        drawBuffer.renderLine(minimapTexture,
-                            {player.pos.x / MINIMAP_SCALE - player.plane.x * 25,
-                             player.pos.y / MINIMAP_SCALE - player.plane.y * 25},
-                            {player.pos.x / MINIMAP_SCALE + player.plane.x * 25,
-                             player.pos.y / MINIMAP_SCALE + player.plane.y * 25},
-                            sf::Color::Red);
-
         drawBuffer.renderLine(
             minimapTexture, {player.pos.x / MINIMAP_SCALE, player.pos.y / MINIMAP_SCALE},
-            {player.pos.x / MINIMAP_SCALE + player.dir.x * 100 + player.plane.x * 100,
-             player.pos.y / MINIMAP_SCALE + player.dir.y * 100 + player.plane.y * 100},
-            sf::Color::Blue);
+            {player.pos.x / MINIMAP_SCALE + player.dir.x * 25,
+             player.pos.y / MINIMAP_SCALE + player.dir.y * 25},
+            sf::Color::Yellow);
 
-        drawBuffer.renderLine(
-            minimapTexture, {player.pos.x / MINIMAP_SCALE, player.pos.y / MINIMAP_SCALE},
-            {player.pos.x / MINIMAP_SCALE + player.dir.x * 100 - player.plane.x * 100,
-             player.pos.y / MINIMAP_SCALE + player.dir.y * 100 - player.plane.y * 100},
-            sf::Color::Blue);
+        drawBuffer.renderLine(minimapTexture,
+                              {player.pos.x / MINIMAP_SCALE ,
+                               player.pos.y / MINIMAP_SCALE},
+                              {player.pos.x / MINIMAP_SCALE + player.plane.x * 25,
+                               player.pos.y / MINIMAP_SCALE + player.plane.y * 25},
+                              sf::Color::Red);
+        /*
+                drawBuffer.renderLine(
+                    minimapTexture, {player.pos.x / MINIMAP_SCALE, player.pos.y /
+           MINIMAP_SCALE}, {player.pos.x / MINIMAP_SCALE + player.dir.x * 100 +
+           player.plane.x * 100, player.pos.y / MINIMAP_SCALE + player.dir.y * 100 +
+           player.plane.y * 100}, sf::Color::Blue);
+
+                drawBuffer.renderLine(
+                    minimapTexture, {player.pos.x / MINIMAP_SCALE, player.pos.y /
+           MINIMAP_SCALE}, {player.pos.x / MINIMAP_SCALE + player.dir.x * 100 -
+           player.plane.x * 100, player.pos.y / MINIMAP_SCALE + player.dir.y * 100 -
+           player.plane.y * 100}, sf::Color::Blue);
+                */
         player.draw(minimapTexture);
 
         minimapTexture.display();

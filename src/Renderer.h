@@ -1,9 +1,9 @@
 #pragma once
 
-#include <SFML/Graphics/RenderTarget.hpp>
-#include <SFML/Graphics/Vertex.hpp>
-#include <SFML/Graphics/Texture.hpp>
 #include <SFML/Graphics/RectangleShape.hpp>
+#include <SFML/Graphics/RenderTarget.hpp>
+#include <SFML/Graphics/Texture.hpp>
+#include <SFML/Graphics/Vertex.hpp>
 #include <vector>
 
 struct Renderer {
