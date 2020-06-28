@@ -76,12 +76,12 @@ struct Map {
 };
 
 struct Player {
-    sf::Vector2f pos = {153, 221};
+    sf::Vector2f pos = {5, 5};
     sf::Vector2f dir = {-1, 0};
     sf::Vector2f plane = {0, -0.66};
 
     float rotSpeed = 5;
-    float moveSpeed = 5;
+    float moveSpeed = 0.05;
 
     // Perpendicular vector to the direction
 
@@ -113,7 +113,7 @@ struct Player {
 
     void draw(sf::RenderTexture& window)
     {
-        rayCastSprite.setPosition(pos.x / MINIMAP_SCALE - 5, pos.y / MINIMAP_SCALE - 5);
+        rayCastSprite.setPosition((pos.x * MINIMAP_SCALE - 5), pos.y * MINIMAP_SCALE - 5);
         window.draw(rayCastSprite);
     }
 };
@@ -194,14 +194,67 @@ int main()
             // The distance from 1 "edge" to the next (in both x and y)SOMEHOW????
             sf::Vector2f distance = {std::abs(1 / rayDir.x), std::abs(1 / rayDir.y)};
 
+            sf::Vector2f sideDist;
+
             sf::Vector2f step;
             if (rayDir.x < 0) {
                 step.x = -1;
+                sideDist.x = (player.pos.x - mapSquare.x) * distance.x;
             }
             else {
                 step.x = 1;
+                sideDist.x = (mapSquare.x + 1.0f - player.pos.x) * distance.x;
             }
 
+            if (rayDir.y < 0) {
+                step.y = -1;
+                sideDist.y = (player.pos.y - mapSquare.y) * distance.y;
+            }
+            else {
+                step.y = 1;
+                sideDist.y = (mapSquare.y + 1.0f - player.pos.y) * distance.y;
+            }
+
+            int side = 0;
+            while (true) {
+                if (sideDist.x < sideDist.y) {
+                    sideDist.x += distance.x;
+                    mapSquare.x += step.x;
+                    side = 0;
+                }
+                else {
+                    sideDist.y += distance.y;
+                    mapSquare.y += step.y;
+                    side = 1;
+                }
+                if (map.getTile(mapSquare.x, mapSquare.y) > 0) {
+                    break;
+                }
+            }
+
+            float perpendicularWallDistance = 0;
+            if (side == 0) {
+                perpendicularWallDistance =
+                    (mapSquare.x - player.pos.x + (1 - step.x) / 2) / rayDir.x;
+            }
+            else {
+                perpendicularWallDistance =
+                    (mapSquare.y - player.pos.y + (1 - step.y) / 2) / rayDir.y;
+            }
+
+            int height = (int)(WINDOW_HEIGHT / perpendicularWallDistance);
+            int start = -height / 2 + WINDOW_HEIGHT / 2;
+            if (start < 0) {
+                start = 0;
+            }
+            int end = height / 2 + WINDOW_HEIGHT / 2;
+            if (end >= WINDOW_HEIGHT) {
+                start = WINDOW_HEIGHT - 1;
+            }
+
+            for (int y = start; y < end; y++) {
+                drawBuffer.setPixel(x, y, sf::Color::Red);
+            }
 
             drawBuffer.renderLine(
                 minimapTexture,
@@ -245,12 +298,11 @@ int main()
              player.pos.y / MINIMAP_SCALE + player.dir.y * 25},
             sf::Color::Yellow);
 
-        drawBuffer.renderLine(minimapTexture,
-                              {player.pos.x / MINIMAP_SCALE ,
-                               player.pos.y / MINIMAP_SCALE},
-                              {player.pos.x / MINIMAP_SCALE + player.plane.x * 25,
-                               player.pos.y / MINIMAP_SCALE + player.plane.y * 25},
-                              sf::Color::Red);
+        drawBuffer.renderLine(
+            minimapTexture, {player.pos.x / MINIMAP_SCALE, player.pos.y / MINIMAP_SCALE},
+            {player.pos.x / MINIMAP_SCALE + player.plane.x * 25,
+             player.pos.y / MINIMAP_SCALE + player.plane.y * 25},
+            sf::Color::Red);
         /*
                 drawBuffer.renderLine(
                     minimapTexture, {player.pos.x / MINIMAP_SCALE, player.pos.y /
