@@ -1,6 +1,7 @@
 #include "keyboard.h"
 #include <SFML/Graphics/Image.hpp>
 #include <SFML/Graphics/RectangleShape.hpp>
+#include <SFML/Graphics/CircleShape.hpp>
 #include <SFML/Graphics/RenderTexture.hpp>
 #include <SFML/Graphics/RenderWindow.hpp>
 #include <SFML/Graphics/Texture.hpp>
@@ -48,8 +49,8 @@ float distance(const sf::Vector2f& vecA, sf::Vector2f& vectB)
 
 sf::Vector2f rotate(const sf::Vector2f& curr, float rad)
 {
-    return {curr.x * std::cos(-rad) - curr.y * std::sin(-rad),
-            curr.x * std::sin(-rad) + curr.y * std::cos(-rad)};
+    return {curr.x * std::cos(rad) - curr.y * std::sin(rad),
+            curr.x * std::sin(rad) + curr.y * std::cos(rad)};
 }
 
 struct Map {
@@ -108,11 +109,11 @@ struct Player {
 
     // Perpendicular vector to the direction
 
-    sf::RectangleShape rayCastSprite;
+    sf::CircleShape rayCastSprite;
 
     Player()
     {
-        rayCastSprite.setSize({10.0f, 10.0f});
+        rayCastSprite.setRadius(5.0f);
     }
 
     void doInput(const Keyboard& keys)
@@ -282,6 +283,18 @@ int main()
                             {player.pos.x / MINIMAP_SCALE + player.plane.x * 25,
                              player.pos.y / MINIMAP_SCALE + player.plane.y * 25},
                             sf::Color::Red);
+
+        drawBuffer.drawLine(minimapTexture,
+                            {player.pos.x / MINIMAP_SCALE, player.pos.y / MINIMAP_SCALE},
+                            {player.pos.x / MINIMAP_SCALE + player.dir.x * 100 + player.plane.x * 100,
+                             player.pos.y / MINIMAP_SCALE + player.dir.y * 100 + player.plane.y * 100},
+                            sf::Color::Blue);
+
+        drawBuffer.drawLine(minimapTexture,
+                            {player.pos.x / MINIMAP_SCALE, player.pos.y / MINIMAP_SCALE},
+                            {player.pos.x / MINIMAP_SCALE + player.dir.x * 100 - player.plane.x * 100,
+                             player.pos.y / MINIMAP_SCALE + player.dir.y * 100 - player.plane.y * 100},
+                            sf::Color::Blue);
         player.draw(minimapTexture);
 
 
