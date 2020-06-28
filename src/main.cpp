@@ -12,7 +12,7 @@ constexpr float PI = 3.14159;
 constexpr float SPEED = 2.0;
 constexpr int FOV = 60;
 
-constexpr int MAP_SIZE = 10;
+constexpr int MAP_SIZE = 20;
 constexpr int TILE_SIZE = 64;
 constexpr int WINDOW_WIDTH = TILE_SIZE * MAP_SIZE * 2;
 constexpr int WINDOW_HEIGHT = TILE_SIZE * MAP_SIZE;
@@ -49,16 +49,25 @@ float distance(const sf::Vector2f& vecA, sf::Vector2f& vectB)
 struct Map {
     // clang-format off
     const std::vector<int> MAP = {
-        1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-        1, 0, 0, 0, 1, 0, 0, 0, 0, 1,
-        1, 0, 0, 0, 1, 1, 0, 0, 0, 1,
-        1, 0, 0, 0, 0, 0, 0, 0, 0, 1,
-        1, 0, 0, 0, 0, 0, 0, 0, 0, 1,
-        1, 0, 0, 0, 0, 0, 0, 0, 0, 1,
-        1, 0, 0, 0, 0, 0, 0, 0, 0, 1,
-        1, 0, 0, 0, 0, 0, 0, 0, 0, 1,
-        1, 0, 0, 0, 0, 0, 0, 0, 0, 1,
-        1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+        1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1,
+        1, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 1,
+        1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+        1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+        1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+        1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+        1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+        1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+        1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+        1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1,
+        1, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 1,
+        1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+        1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+        1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+        1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+        1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+        1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
     };
     // clang-format on
 
@@ -153,7 +162,10 @@ struct Drawbuffer {
 
     void set(int x, int y, sf::Uint8 red, sf::Uint8 green, sf::Uint8 blue)
     {
-        sf::Uint8* ptr = &pixels[(y * WINDOW_WIDTH + x) * 4];
+        if (x < 0 || x >= PROJECTION_WIDTH || y < 0 || y >= WINDOW_HEIGHT) {
+            return;
+        }
+        sf::Uint8* ptr = &pixels.at((y * PROJECTION_WIDTH + x) * 4);
         ptr[0] = red;
         ptr[1] = green;
         ptr[2] = blue;
@@ -298,18 +310,42 @@ int main()
                 verticalIntersect = next;
             }
 
+            // Find the shortest distance (And draw a ray on the minimap)
             float hDist = distance({player.x, player.y}, horizonatalIntersect);
             float vDist = distance({player.x, player.y}, verticalIntersect);
-
+            float dist = hDist < vDist ? hDist : vDist;
+            sf::Color colour;
             if (hDist < vDist) {
                 drawBuffer.drawLine(window, {player.x, player.y}, horizonatalIntersect,
                                     sf::Color::Blue);
+                colour = {255, 153, 51};
             }
             else {
                 drawBuffer.drawLine(window, {player.x, player.y}, verticalIntersect,
                                     sf::Color::Red);
+                colour = {255, 204, 102};
+
             }
 
+            // Fix the fisheye effect
+            dist = std::cos(rads(FOV / 2)) * dist;
+
+            // Draw the walls
+            float height = TILE_SIZE / dist * (PROJECTION_WIDTH / 2 / std::tan(rads(FOV / 2)));
+            float middle = 320;
+            int start = (WINDOW_HEIGHT / 2) - height / 2;
+            // Draw the ceiling, then the wall, then the floor
+            for (int y = 0; y < start; y++) {
+                drawBuffer.set(i, y, 135, 206, 235);
+            }
+            for (int y = start; y < start + height; y++) {
+                drawBuffer.set(i, y, colour.r, colour.g, colour.b);
+            }
+            for (int y = start + height; y < WINDOW_HEIGHT; y++) {
+                drawBuffer.set(i, y, 0, 153, 51);
+            }
+
+            // Find the next ray angle
             rayAngle = wrap(rayAngle + (float)FOV / (float)PROJECTION_WIDTH);
         }
         drawBuffer.drawLine(window, {player.x, player.y},
