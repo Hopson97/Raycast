@@ -6,6 +6,7 @@
 #include <cassert>
 #include <cmath>
 #include "Renderer.h"
+#include <fstream>
 
 constexpr float PI = 3.14159;
 constexpr float SPEED = 2.0;
@@ -44,48 +45,33 @@ float distance(const sf::Vector2f& vecA, sf::Vector2f& vectB)
 }
 
 struct Map {
-    // clang-format off
-    std::vector<int> MAP = {
-        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-        1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1,
-        1, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 1,
-        1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
-        1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
-        1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
-        1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
-        1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1,
-        1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1,
-        1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1,
-        1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 0, 0, 0, 0, 1,
-        1, 0, 0, 0, 1, 1, 0, 0, 0, 0, 1, 1, 1, 0, 1, 1, 0, 0, 0, 1,
-        1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1,
-        1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
-        1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
-        1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
-        1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
-        1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
-        1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
-        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-    };
-    // clang-format on
+    std::vector<int> map;
 
     Map()
     {
-        assert(MAP.size() == (MAP_SIZE * MAP_SIZE));
+        std::ifstream inFile("map.txt");
+        std::string line;
+        map.reserve(MAP_SIZE * MAP_SIZE);
+        while (std::getline(inFile, line)) {
+            for (auto c : line) {
+                map.push_back(c - '0');
+            }
+        }
+        assert(map.size() == (MAP_SIZE * MAP_SIZE));
     }
 
     int getTile(int x, int y) const
     {
         if (x < 0 || x > MAP_SIZE || y < 0 || y > MAP_SIZE)
             return 0;
-        return MAP[y * MAP_SIZE + x];
+        return map[y * MAP_SIZE + x];
     }
 
     void setTile(int x, int y, int tile)
     {
         if (x < 0 || x > MAP_SIZE || y < 0 || y > MAP_SIZE)
             return;
-        MAP[y * MAP_SIZE + x] = tile;
+        map[y * MAP_SIZE + x] = tile;
     }
 };
 
@@ -211,6 +197,8 @@ int main()
         float rayAngle = wrap(player.angle - FOV / 2);
         for (int i = 0; i < WINDOW_WIDTH; i++) {
 
+
+
             
             // These need to be stored for later so they can be compared
             sf::Vector2f horizonatalIntersect;
@@ -323,6 +311,7 @@ int main()
                     minimapTexture, {player.x / MINIMAP_SCALE, player.y / MINIMAP_SCALE},
                     verticalIntersect / (float)MINIMAP_SCALE, {255, 0, 0, 50});
             }
+            
             
         }
 
