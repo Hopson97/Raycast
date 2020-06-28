@@ -21,8 +21,6 @@ constexpr int MINIMAP_TILE_SIZE = TILE_SIZE / MINIMAP_SCALE;
 constexpr int WINDOW_WIDTH = 1280;
 constexpr int WINDOW_HEIGHT = 720;
 
-constexpr int EYE_HEIGHT = 32;
-
 float rads(float degs)
 {
     return degs * PI / 180.f;
