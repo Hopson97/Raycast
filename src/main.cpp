@@ -1,27 +1,18 @@
-#include "keyboard.h"
+#include "Keyboard.h"
+#include <SFML/Graphics/CircleShape.hpp>
 #include <SFML/Graphics/Image.hpp>
 #include <SFML/Graphics/RectangleShape.hpp>
-#include <SFML/Graphics/CircleShape.hpp>
 #include <SFML/Graphics/RenderTexture.hpp>
 #include <SFML/Graphics/RenderWindow.hpp>
 #include <SFML/Graphics/Texture.hpp>
-#include <SFML/Graphics/VertexBuffer.hpp>
 #include <cassert>
 #include <cmath>
 #include <cstring>
-#include <iostream>
 #include <fstream>
+#include <iostream>
 
-constexpr float PI = 3.14159;
-constexpr float SPEED = 2.0;
-constexpr int FOV = 60;
-
-constexpr int MAP_SIZE = 20;
-constexpr int TILE_SIZE = 64;
-constexpr int MINIMAP_SCALE = 4;
-constexpr int MINIMAP_TILE_SIZE = TILE_SIZE / MINIMAP_SCALE;
-constexpr int WINDOW_WIDTH = 1280;
-constexpr int WINDOW_HEIGHT = 720;
+#include "Constants.h"
+#include "Renderer.h"
 
 float rads(float degs)
 {
@@ -127,46 +118,6 @@ struct Player {
     }
 };
 
-struct Drawbuffer {
-    std::vector<sf::Uint8> pixels;
-    std::vector<sf::Vertex> line;
-
-    Drawbuffer()
-        : pixels((WINDOW_WIDTH)*WINDOW_HEIGHT * 4)
-    {
-        line.emplace_back(sf::Vector2f{0, 0}, sf::Color::Red);
-        line.emplace_back(sf::Vector2f{0, 0}, sf::Color::Red);
-    }
-
-    // For the minimap
-    void drawLine(sf::RenderTarget& target, const sf::Vector2f& begin,
-                  const sf::Vector2f& end, sf::Color colour)
-    {
-        line[0].position = begin;
-        line[1].position = end;
-        line[0].color = colour;
-        line[1].color = colour;
-        target.draw(line.data(), 2, sf::PrimitiveType::Lines);
-    }
-
-    void clear()
-    {
-        std::memset(pixels.data(), 0, pixels.size());
-    }
-
-    void set(int x, int y, sf::Uint8 red, sf::Uint8 green, sf::Uint8 blue)
-    {
-        if (x < 0 || x >= WINDOW_WIDTH || y < 0 || y >= WINDOW_HEIGHT) {
-            return;
-        }
-        sf::Uint8* ptr = &pixels.at((y * WINDOW_WIDTH + x) * 4);
-        ptr[0] = red;
-        ptr[1] = green;
-        ptr[2] = blue;
-        ptr[3] = 255;
-    }
-};
-
 int main()
 {
     sf::RenderWindow window({WINDOW_WIDTH, WINDOW_HEIGHT}, "Raycast Test");
@@ -180,15 +131,9 @@ int main()
     minimapSprite.setSize(
         {(float)MINIMAP_TILE_SIZE * MAP_SIZE, (float)MINIMAP_TILE_SIZE * MAP_SIZE});
 
-    Drawbuffer drawBuffer;
+    Renderer drawBuffer;
     Map map;
     Player player;
-
-    sf::Texture texture;
-    texture.create(WINDOW_WIDTH, WINDOW_HEIGHT);
-
-    sf::RectangleShape rayCastSprite;
-    rayCastSprite.setSize({WINDOW_WIDTH, WINDOW_HEIGHT});
 
     sf::RectangleShape minimapTile;
     minimapTile.setSize({MINIMAP_TILE_SIZE, MINIMAP_TILE_SIZE});
@@ -232,20 +177,28 @@ int main()
 
         // Clear
         window.clear();
-        drawBuffer.clear();
+        drawBuffer.clearPixels();
         minimapTexture.clear(sf::Color::Transparent);
 
+        // DO RAYCASTING HERE
+
         // Actually render the walls
-        rayCastSprite.setTexture(&texture);
-        texture.update(drawBuffer.pixels.data());
-        window.draw(rayCastSprite);
+        drawBuffer.render(window);
 
         // Render the minimap
         for (int y = 0; y < MAP_SIZE; y++) {
             for (int x = 0; x < MAP_SIZE; x++) {
                 switch (map.getTile(x, y)) {
                     case 1:
-                        minimapTile.setFillColor({255, 255, 255, 200});
+                        minimapTile.setFillColor({255, 0, 0, 200});
+                        break;
+
+                    case 2:
+                        minimapTile.setFillColor({0, 255, 0, 200});
+                        break;
+
+                    case 3:
+                        minimapTile.setFillColor({0, 0, 255, 200});
                         break;
 
                     default:
@@ -256,32 +209,31 @@ int main()
                 window.draw(minimapTile);
             }
         }
-        drawBuffer.drawLine(minimapTexture,
+        drawBuffer.renderLine(minimapTexture,
                             {player.pos.x / MINIMAP_SCALE, player.pos.y / MINIMAP_SCALE},
                             {player.pos.x / MINIMAP_SCALE + player.dir.x * 25,
                              player.pos.y / MINIMAP_SCALE + player.dir.y * 25},
                             sf::Color::Yellow);
 
-        drawBuffer.drawLine(minimapTexture,
-                            {player.pos.x / MINIMAP_SCALE - player.plane.x * 25, 
+        drawBuffer.renderLine(minimapTexture,
+                            {player.pos.x / MINIMAP_SCALE - player.plane.x * 25,
                              player.pos.y / MINIMAP_SCALE - player.plane.y * 25},
                             {player.pos.x / MINIMAP_SCALE + player.plane.x * 25,
                              player.pos.y / MINIMAP_SCALE + player.plane.y * 25},
                             sf::Color::Red);
 
-        drawBuffer.drawLine(minimapTexture,
-                            {player.pos.x / MINIMAP_SCALE, player.pos.y / MINIMAP_SCALE},
-                            {player.pos.x / MINIMAP_SCALE + player.dir.x * 100 + player.plane.x * 100,
-                             player.pos.y / MINIMAP_SCALE + player.dir.y * 100 + player.plane.y * 100},
-                            sf::Color::Blue);
+        drawBuffer.renderLine(
+            minimapTexture, {player.pos.x / MINIMAP_SCALE, player.pos.y / MINIMAP_SCALE},
+            {player.pos.x / MINIMAP_SCALE + player.dir.x * 100 + player.plane.x * 100,
+             player.pos.y / MINIMAP_SCALE + player.dir.y * 100 + player.plane.y * 100},
+            sf::Color::Blue);
 
-        drawBuffer.drawLine(minimapTexture,
-                            {player.pos.x / MINIMAP_SCALE, player.pos.y / MINIMAP_SCALE},
-                            {player.pos.x / MINIMAP_SCALE + player.dir.x * 100 - player.plane.x * 100,
-                             player.pos.y / MINIMAP_SCALE + player.dir.y * 100 - player.plane.y * 100},
-                            sf::Color::Blue);
+        drawBuffer.renderLine(
+            minimapTexture, {player.pos.x / MINIMAP_SCALE, player.pos.y / MINIMAP_SCALE},
+            {player.pos.x / MINIMAP_SCALE + player.dir.x * 100 - player.plane.x * 100,
+             player.pos.y / MINIMAP_SCALE + player.dir.y * 100 - player.plane.y * 100},
+            sf::Color::Blue);
         player.draw(minimapTexture);
-
 
         minimapTexture.display();
         minimapSprite.setTexture(&minimapTexture.getTexture());

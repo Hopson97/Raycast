@@ -6,7 +6,8 @@ project(raycast VERSION 1.0)
 #Set executable
 add_executable(${PROJECT_NAME}     
     src/main.cpp
-    src/keyboard.cpp
+    src/Keyboard.cpp
+    src/Renderer.cpp
 )
 
 #Set C++17
