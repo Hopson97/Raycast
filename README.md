@@ -1,6 +1,18 @@
 # raycast
 
-description here
+Minimal Raycaster created using SFML and C++, with some map editing capabilties.
+
+Useful resources for learning how to do this:
+
+https://permadi.com/1996/05/ray-casting-tutorial-table-of-contents/
+
+https://lodev.org/cgtutor/raycasting.html
+
+www.youtube.com/watch?v=gYRrGTC7GtA
+
+GIF:
+
+![Raycaster GIF](https://i.imgur.com/tQFahuc.gif)
 
 ## Building and Running
 
