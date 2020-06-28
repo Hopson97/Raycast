@@ -39,6 +39,13 @@ float wrap(float angle)
     }
 }
 
+float distance(const sf::Vector2f& vecA, sf::Vector2f& vectB)
+{
+    float dx = (vecA.x - vectB.x);
+    float dy = (vecA.y - vectB.y);
+    return std::sqrt(dx * dx + dy * dy);
+}
+
 struct Map {
     // clang-format off
     const std::vector<int> MAP = {
@@ -222,11 +229,13 @@ int main()
         //
         //  Raycasting starts here
         //
+        sf::Vector2f horizonatalIntersect;
+        sf::Vector2f verticalIntersect;
 
         // Get the starting angle of the ray, that is half the FOV to the "left" of the
         // player's looking angle
         float rayAngle = wrap(player.angle - FOV / 2);
-        for (int i = 0; i < 1; i++) {
+        for (int i = 0; i < PROJECTION_WIDTH; i++) {
             //
             // Horizontal line
             //
@@ -236,6 +245,7 @@ int main()
             //  Opp = (Y Intersection - Player Y position)
             //  Theta = Ray's angle
             //  tan(Theta) = Opp / X Intersection so X Intersection = Opp / tan(Theta)
+
             {
                 sf::Vector2f initialIntersect;
                 initialIntersect.y = std::floor(player.y / TILE_SIZE) * TILE_SIZE +
@@ -248,23 +258,20 @@ int main()
                 distance.y = rayAngle < 180 ? TILE_SIZE : -TILE_SIZE;
                 distance.x = TILE_SIZE / (rayAngle < 180 ? std::tan(rads(rayAngle))
                                                          : -std::tan(rads(rayAngle)));
-                sf::Vector2f next = initialIntersect + distance;
-                int gridX = std::floor(next.x / TILE_SIZE);
-                int gridY = std::floor(next.y / TILE_SIZE);
 
+                int gridX = std::floor(initialIntersect.x / TILE_SIZE);
+                int gridY = std::floor(initialIntersect.y / TILE_SIZE);
+                sf::Vector2f next = initialIntersect;
                 while ((gridX >= 0 && gridX < MAP_SIZE) &&
                        map.getTile(gridX, gridY) == 0) {
                     next += distance;
                     gridX = std::floor(next.x / TILE_SIZE);
                     gridY = std::floor(next.y / TILE_SIZE);
                 }
-
-                drawBuffer.drawLine(window, {player.x, player.y}, next, sf::Color::Red);
+                horizonatalIntersect = next;
             }
 
-            //
-            // Vertical line
-            //
+            // Vertical line, same idea as the horizontal line
             {
                 bool left = rayAngle > 90 && rayAngle < 270;
                 sf::Vector2f initialIntersect;
@@ -273,13 +280,12 @@ int main()
                 initialIntersect.y =
                     (initialIntersect.x - player.x) * std::tan(rads(rayAngle)) + player.y;
 
-                // Find distances to the next intersection
                 sf::Vector2f distance;
                 distance.x = left ? -TILE_SIZE : TILE_SIZE;
                 distance.y = TILE_SIZE * (left ? -std::tan(rads(rayAngle))
                                                : std::tan(rads(rayAngle)));
 
-                sf::Vector2f next = initialIntersect + distance;
+                sf::Vector2f next = initialIntersect;
                 int gridX = std::floor(next.x / TILE_SIZE);
                 int gridY = std::floor(next.y / TILE_SIZE);
 
@@ -289,8 +295,19 @@ int main()
                     gridX = std::floor(next.x / TILE_SIZE);
                     gridY = std::floor(next.y / TILE_SIZE);
                 }
+                verticalIntersect = next;
+            }
 
-                drawBuffer.drawLine(window, {player.x, player.y}, next, sf::Color::Blue);
+            float hDist = distance({player.x, player.y}, horizonatalIntersect);
+            float vDist = distance({player.x, player.y}, verticalIntersect);
+
+            if (hDist < vDist) {
+                drawBuffer.drawLine(window, {player.x, player.y}, horizonatalIntersect,
+                                    sf::Color::Blue);
+            }
+            else {
+                drawBuffer.drawLine(window, {player.x, player.y}, verticalIntersect,
+                                    sf::Color::Red);
             }
 
             rayAngle = wrap(rayAngle + (float)FOV / (float)PROJECTION_WIDTH);
