@@ -16,7 +16,8 @@ constexpr int FOV = 60;
 
 constexpr int MAP_SIZE = 20;
 constexpr int TILE_SIZE = 64;
-constexpr int MINIMAP_TILE_SIZE = 16;
+constexpr int MINIMAP_SCALE = 4;
+constexpr int MINIMAP_TILE_SIZE = TILE_SIZE / MINIMAP_SCALE;
 constexpr int WINDOW_WIDTH = 1280;
 constexpr int WINDOW_HEIGHT = 720;
 
@@ -49,7 +50,7 @@ float distance(const sf::Vector2f& vecA, sf::Vector2f& vectB)
 
 struct Map {
     // clang-format off
-    const std::vector<int> MAP = {
+    std::vector<int> MAP = {
         1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
         1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1,
         1, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 1,
@@ -57,12 +58,12 @@ struct Map {
         1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
         1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
         1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
-        1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
-        1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
-        1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
-        1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1,
-        1, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 1,
-        1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+        1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1,
+        1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1,
+        1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1,
+        1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 0, 0, 0, 0, 1,
+        1, 0, 0, 0, 1, 1, 0, 0, 0, 0, 1, 1, 1, 0, 1, 1, 0, 0, 0, 1,
+        1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1,
         1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
         1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
         1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
@@ -83,6 +84,13 @@ struct Map {
         if (x < 0 || x > MAP_SIZE || y < 0 || y > MAP_SIZE)
             return 0;
         return MAP[y * MAP_SIZE + x];
+    }
+
+    void setTile(int x, int y, int tile)
+    {
+        if (x < 0 || x > MAP_SIZE || y < 0 || y > MAP_SIZE)
+            return;
+        MAP[y * MAP_SIZE + x] = tile;
     }
 };
 
@@ -135,7 +143,7 @@ struct Player {
 
     void draw(sf::RenderTexture& window)
     {
-        rayCastSprite.setPosition(x / 4 - 5, y / 4 - 5);
+        rayCastSprite.setPosition(x / MINIMAP_SCALE - 5, y / MINIMAP_SCALE - 5);
         window.draw(rayCastSprite);
     }
 };
@@ -218,6 +226,21 @@ int main()
                 case sf::Event::Closed:
                     window.close();
                     break;
+
+                // Minimap editing
+                case sf::Event::MouseButtonReleased: {
+                    auto mouseEvent = e.mouseButton;
+                    int x = mouseEvent.x;
+                    int y = mouseEvent.y;
+                    if (x > 0 && x < MAP_SIZE * MINIMAP_TILE_SIZE && y > 0 &&
+                        y < MAP_SIZE * MINIMAP_TILE_SIZE) {
+                        x /= MINIMAP_TILE_SIZE;
+                        y /= MINIMAP_TILE_SIZE;
+                        // toggle the tile
+                        map.setTile(x, y, !map.getTile(x, y));
+                    }
+                    break;
+                }
 
                 default:
                     break;
@@ -322,12 +345,12 @@ int main()
                 TILE_SIZE / dist * (WINDOW_WIDTH / 2 / std::tan(rads(FOV / 2)));
             int start = (WINDOW_HEIGHT / 2) - height / 2;
             // Draw the ceiling, then the wall, then the floor
+            // This is done by drawing vertical lines in a loop
             for (int y = 0; y < start; y++) {
                 drawBuffer.set(i, y, 135, 206, 235);
             }
             for (int y = start; y < start + height; y++) {
-                drawBuffer.set(i, y, colour.r / dist * 255, colour.g / dist * 255,
-                               colour.b / dist * 255);
+                drawBuffer.set(i, y, colour.r, colour.g, colour.b);
             }
             for (int y = start + height; y < WINDOW_HEIGHT; y++) {
                 drawBuffer.set(i, y, 0, 153, 51);
@@ -338,12 +361,14 @@ int main()
 
             // Draw rays for the mini map
             if (hDist < vDist) {
-                drawBuffer.drawLine(minimapTexture, {player.x / 4.0f, player.y / 4.0f},
-                                    horizonatalIntersect / 4.0f, {0, 0, 255, 50});
+                drawBuffer.drawLine(
+                    minimapTexture, {player.x / MINIMAP_SCALE, player.y / MINIMAP_SCALE},
+                    horizonatalIntersect / (float)MINIMAP_SCALE, {0, 0, 255, 50});
             }
             else {
-                drawBuffer.drawLine(minimapTexture, {player.x / 4.0f, player.y / 4.0f},
-                                    verticalIntersect / 4.0f, {255, 0, 0, 50});
+                drawBuffer.drawLine(
+                    minimapTexture, {player.x / MINIMAP_SCALE, player.y / MINIMAP_SCALE},
+                    verticalIntersect / (float)MINIMAP_SCALE, {255, 0, 0, 50});
             }
         }
 
@@ -369,10 +394,11 @@ int main()
             }
         }
         player.draw(minimapTexture);
-        drawBuffer.drawLine(
-            minimapTexture, {player.x / 4, player.y / 4},
-            {player.x / 4 + player.dx * 25, player.y / 4 + player.dy * 25},
-            sf::Color::Yellow);
+        drawBuffer.drawLine(minimapTexture,
+                            {player.x / MINIMAP_SCALE, player.y / MINIMAP_SCALE},
+                            {player.x / MINIMAP_SCALE + player.dx * 25,
+                             player.y / MINIMAP_SCALE + player.dy * 25},
+                            sf::Color::Yellow);
 
         minimapTexture.display();
         minimapSprite.setTexture(&minimapTexture.getTexture());
