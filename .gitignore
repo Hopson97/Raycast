@@ -2,3 +2,12 @@
 /bin
 raycast
 .vscode/
+
+*.dll
+Debug/
+Release/
+
+*.filters
+*.vcxproj
+*.user
+*.sln
