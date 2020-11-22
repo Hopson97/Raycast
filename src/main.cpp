@@ -86,11 +86,11 @@ struct Player {
     void doInput(const Keyboard& keys)
     {
         float a = rads(angle);
-        if (keys.isKeyDown(sf::Keyboard::W)) {
+        if (keys.isKeyDown(sf::Keyboard::W) || keys.isKeyDown(sf::Keyboard::Up)) {
             x += dx * SPEED;
             y += dy * SPEED;
         }
-        if (keys.isKeyDown(sf::Keyboard::A)) {
+        if (keys.isKeyDown(sf::Keyboard::A) || keys.isKeyDown(sf::Keyboard::Left)) {
             angle -= SPEED;
             if (angle < 0) {
                 angle += 360;
@@ -98,11 +98,11 @@ struct Player {
             dx = std::cos(a);
             dy = std::sin(a);
         }
-        if (keys.isKeyDown(sf::Keyboard::S)) {
+        if (keys.isKeyDown(sf::Keyboard::S) || keys.isKeyDown(sf::Keyboard::Down)) {
             x -= dx * SPEED;
             y -= dy * SPEED;
         }
-        if (keys.isKeyDown(sf::Keyboard::D)) {
+        if (keys.isKeyDown(sf::Keyboard::D) || keys.isKeyDown(sf::Keyboard::Right)) {
             angle += SPEED;
             if (angle > 360) {
                 angle -= 360;
