@@ -1,6 +1,6 @@
 # raycast
 
-Minimal Raycaster created using SFML and C++, with some map editing capabilties.
+Minimal Raycaster created using SFML and C++, with some map editing capabilities.
 
 Useful resources for learning how to do this:
 
@@ -56,3 +56,4 @@ You can also create a deployable build (that can be sent) by doing:
 ```sh
 sh scripts/deploy.sh
 ```
+
